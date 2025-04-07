@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedCare - Appointment Booking</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f2f5;
+        }
+
+        .chat-container {
+            width: 380px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .chat-messages {
+            height: 450px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            max-width: 80%;
+            clear: both;
+        }
+
+        .bot-message {
+            background: #f0f2f5;
+            padding: 12px 16px;
+            border-radius: 15px;
+            float: left;
+            color: #333;
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 15px;
+            float: right;
+        }
+
+        .options-container {
+            clear: both;
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .option-button {
+            background: white;
+            border: 1px solid #007bff;
+            color: #007bff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .option-button:hover {
+            background: #007bff;
+            color: white;
+        }
+
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        .chat-input button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+
+        .chat-input button:hover {
+            background: #0056b3;
+        }
+
+        /* Loading animation */
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 12px 16px;
+            background: #f0f2f5;
+            border-radius: 15px;
+            float: left;
+            margin-bottom: 15px;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #90949c;
+            border-radius: 50%;
+            animation: typing 1s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* Calendar styles */
+        .calendar-container {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+
+        .calendar-day {
+            padding: 5px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .calendar-day:hover {
+            background: #e6f2ff;
+        }
+
+        .calendar-day.selected {
+            background: #007bff;
+            color: white;
+        }
+
+        /* Time slot styles */
+        .time-slots {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .time-slot {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #007bff;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .time-slot:hover {
+            background: #e6f2ff;
+        }
+
+        .time-slot.selected {
+            background: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            MedCare Appointment Booking
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages will appear here -->
+        </div>
+        <div class="chat-input">
+            <input type="text" id="userInput" placeholder="Type your message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 'start';
+        let appointmentDetails = {
+            department: '',
+            doctor: '',
+            date: '',
+            time: '',
+            name: '',
+            phone: '',
+            email: ''
+        };
+
+        function addMessage(message, isUser = false) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.textContent = message;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const chatMessages = document.getElementById('chatMessages');
+            const indicator = document.createElement('div');
+            indicator.className = 'typing-indicator';
+            indicator.innerHTML = '<span></span><span></span><span></span>';
+            chatMessages.appendChild(indicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return indicator;
+        }
+
+        function addOptions(options, handler) {
+            const chatMessages = document.getElementById('chatMessages');
+            const optionsContainer = document.createElement('div');
+            optionsContainer.className = 'options-container';
+            
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'option-button';
+                button.textContent = option;
+                button.onclick = () => handler(option);
+                optionsContainer.appendChild(button);
+            });
+            
+            chatMessages.appendChild(optionsContainer);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function handleDepartmentSelection(department) {
+            appointmentDetails.department = department;
+            addMessage(`You selected: ${department}`, true);
+            
+            const indicator = showTypingIndicator();
+            try {
+                const response = await fetch(`/api/get-doctors/${department}`);
+                const doctors = await response.json();
+                indicator.remove();
+                
+                addMessage(`Please select a doctor from ${department}:`);
+                addOptions(doctors, handleDoctorSelection);
+            } catch (error) {
+                indicator.remove();
+                addMessage("Sorry, there was an error. Please try again.");
+            }
+        }
+
+        async function handleDoctorSelection(doctor) {
+            appointmentDetails.doctor = doctor;
+            addMessage(`You selected: ${doctor}`, true);
+            
+            // Show calendar for date selection
+            showCalendar();
+        }
+
+        function showCalendar() {
+            const chatMessages = document.getElementById('chatMessages');
+            const calendarContainer = document.createElement('div');
+            calendarContainer.className = 'calendar-container';
+            
+            // Add calendar implementation here
+            // For now, just show date input message
+            addMessage("Please enter your preferred date (DD/MM/YYYY):");
+        }
+
+        async function handleDateInput(date) {
+            appointmentDetails.date = date;
+            
+            const indicator = showTypingIndicator();
+            try {
+                const response = await fetch('/api/get-time-slots', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        doctor: appointmentDetails.doctor,
+                        date: date
+                    })
+                });
+                const timeSlots = await response.json();
+                indicator.remove();
+                
+                addMessage("Please select your preferred time:");
+                addOptions(timeSlots, handleTimeSelection);
+            } catch (error) {
+                indicator.remove();
+                addMessage("Sorry, there was an error. Please try again.");
+            }
+        }
+
+        function handleTimeSelection(time) {
+            appointmentDetails.time = time;
+            addMessage(`You selected: ${time}`, true);
+            addMessage("Please enter your full name:");
+            currentStep = 'name';
+        }
+
+        function handleNameInput(name) {
+            appointmentDetails.name = name;
+            addMessage("Please enter your email address:");
+            currentStep = 'email';
+        }
+
+        function handleEmailInput(email) {
+            appointmentDetails.email = email;
+            addMessage("Please enter your phone number:");
+            currentStep = 'phone';
+        }
+
+        async function handlePhoneInput(phone) {
+            appointmentDetails.phone = phone;
+            
+            const indicator = showTypingIndicator();
+            try {
+                const response = await fetch('/api/book-appointment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(appointmentDetails)
+                });
+                const result = await response.json();
+                indicator.remove();
+                
+                if (result.success) {
+                    addMessage("Great! Your appointment has been booked. You'll receive a confirmation email and SMS shortly.");
+                } else {
+                    addMessage("Sorry, there was an error booking your appointment. Please try again.");
+                }
+            } catch (error) {
+                indicator.remove();
+                addMessage("Sorry, there was an error. Please try again.");
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            
+            if (message === '') return;
+            
+            addMessage(message, true);
+            input.value = '';
+
+            switch(currentStep) {
+                case 'date':
+                    handleDateInput(message);
+                    break;
+                case 'name':
+                    handleNameInput(message);
+                    break;
+                case 'email':
+                    handleEmailInput(message);
+                    break;
+                case 'phone':
+                    handlePhoneInput(message);
+                    break;
+            }
+        }
+
+        // Handle Enter key in input
+        document.getElementById('userInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Initialize the chatbot
+        window.onload = async function() {
+            addMessage("Welcome to MedCare! Please select a department:");
+            try {
+                const response = await fetch('/api/get-departments');
+                const departments = await response.json();
+                addOptions(departments, handleDepartmentSelection);
+            } catch (error) {
+                addMessage("Sorry, there was an error. Please try again later.");
+            }
+        }
+
+        // Add this to your existing JavaScript in chatbot.html
+
+async function checkAvailability(date, time) {
+    try {
+        const response = await fetch('/api/check-availability', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                doctor: appointmentDetails.doctor,
+                date: date,
+                time: time
+            })
+        });
+        const result = await response.json();
+        return result.available;
+    } catch (error) {
+        console.error('Error checking availability:', error);
+        return false;
+    }
+}
+
+// Update handleTimeSelection function
+async function handleTimeSelection(time) {
+    const isAvailable = await checkAvailability(appointmentDetails.date, time);
+    if (!isAvailable) {
+        addMessage("Sorry, this slot is no longer available. Please select another time.");
+        return;
+    }
+    
+    appointmentDetails.time = time;
+    addMessage(`You selected: ${time}`, true);
+    addMessage("Please enter your full name:");
+    currentStep = 'name';
+}
+
+// Update handlePhoneInput function
+async function handlePhoneInput(phone) {
+    appointmentDetails.phone = phone;
+    
+    const indicator = showTypingIndicator();
+    try {
+        const response = await fetch('/api/book-appointment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(appointmentDetails)
+        });
+        const result = await response.json();
+        indicator.remove();
+        
+        if (result.success) {
+            addMessage("Great! Your appointment has been booked. You'll receive a confirmation email and SMS shortly.");
+            addMessage("Here's your appointment summary:");
+            addMessage(`
+                Doctor: ${appointmentDetails.doctor}
+                Date: ${appointmentDetails.date}
+                Time: ${appointmentDetails.time}
+                
+                Please arrive 10 minutes before your appointment time.
+            `);
+        } else {
+            addMessage("Sorry, there was an error booking your appointment. Please try again.");
+        }
+    } catch (error) {
+        indicator.remove();
+        addMessage("Sorry, there was an error. Please try again.");
+    }
+}
+
+
+    </script>
+</body>
+</html>
